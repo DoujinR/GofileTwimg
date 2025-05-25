@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>動画一覧</title>
+  <!-- DataTables CSS -->
+  <link rel="stylesheet"
+        href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    h1    { margin-bottom: 1em; }
+    table { width: 100%; }
+  </style>
+</head>
+<body>
+  <h1>動画一覧</h1>
+  <table id="videoTable" class="display">
+    <thead>
+      <tr>
+        <th>タイトル</th>
+        <th>URL</th>
+        <th>追加日</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <!-- jQuery + DataTables JS -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script
+    src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+  <script>
+    fetch('videos.json')
+      .then(res => res.json())
+      .then(videos => {
+        const tbody = document.querySelector('#videoTable tbody');
+        videos.forEach(v => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${v.title}</td>
+            <td><a href="${v.url}" target="_blank">${v.url}</a></td>
+            <td>${v.date}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+        $('#videoTable').DataTable({
+          order: [[2, 'desc']],  // 日付降順
+          pageLength: 10         // 1ページあたり件数
+        });
+      })
+      .catch(err => console.error('JSON読み込みエラー:', err));
+  </script>
+</body>
+</html>
