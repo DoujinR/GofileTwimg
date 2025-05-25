@@ -51,7 +51,7 @@
 
           // サーバ情報を取得
           fetch(`https://apiv2.gofile.io/getServer?c=${fileId}`)
-            .then(r => r.json())
+            .then(res => res.json())
             .then(j => {
               if (j.status === 'ok') {
                 const rawUrl = `https://${j.data.server}.gofile.io/download/${fileId}`;
