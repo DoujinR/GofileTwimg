@@ -50,7 +50,7 @@
           const fileId = v.url.split('/').pop();
 
           // サーバ情報を取得
-          fetch(`https://api.gofile.io/getServer?fileId=${fileId}`)
+          fetch(`https://apiv2.gofile.io/getServer?c=${fileId}`)
             .then(r => r.json())
             .then(j => {
               if (j.status === 'ok') {
