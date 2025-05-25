@@ -3,9 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>動画一覧（動くサムネプレビュー付き）</title>
-  <!-- DataTables CSS -->
-  <link rel="stylesheet"
-        href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
   <style>
     body { font-family: sans-serif; padding: 20px; }
     table { width: 100%; }
@@ -24,79 +22,60 @@
         <th>追加日</th>
       </tr>
     </thead>
-    <tbody>
-      <!-- JavaScript がここに <tr> を追加する -->
-    </tbody>
+    <tbody><!-- JS で埋める --></tbody>
   </table>
 
-  <!-- jQuery と DataTables の読み込み -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script
-    src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
-
-  <!-- ここから下を追記／書き換え -->
+  <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
   <script>
-  $(document).ready(function(){
-    // 1. videos.json を取得
-    fetch('videos.json')
-      .then(res => res.json())
-      .then(videos => {
-        // 2. 各動画データを処理
-        const rows = [];  // 後で DataTable に全行をまとめて追加するための配列
-        let pending = videos.length;  // API 呼び出し完了待ちカウンタ
+  $(async function(){
+    try {
+      // 1) まずサーバー一覧を取得
+      const srvRes = await fetch('https://api.gofile.io/servers');
+      const srvJson = await srvRes.json();
+      if (srvJson.status !== 'ok') throw new Error('サーバー取得失敗');
 
-        videos.forEach(v => {
-          // Gofile.io の fileId を抽出
-          const fileId = v.url.split('/').pop();
+      // サーバーの配列（例: ["srv1", "srv2", ...]）
+      const servers = srvJson.data.servers;
+      // 任意のサーバーを選択（ここでは一番目を採用）
+      const server = servers[0];
 
-          // サーバ情報を取得
-          fetch(`https://apiv2.gofile.io/getServer?c=${fileId}`)
-            .then(res => res.json())
-            .then(j => {
-              if (j.status === 'ok') {
-                const rawUrl = `https://${j.data.server}.gofile.io/download/${fileId}`;
-                // テーブル行用の HTML を作成
-                rows.push(`
-                  <tr>
-                    <td>
-                      <video width="160" muted autoplay loop playsinline preload="metadata">
-                        <source src="${rawUrl}" type="video/mp4">
-                        <!-- 他形式の場合は type を調整 -->
-                      </video>
-                    </td>
-                    <td>${v.title}</td>
-                    <td><a href="${v.url}" target="_blank">原ページ</a></td>
-                    <td>${v.date}</td>
-                  </tr>
-                `);
-              }
-            })
-            .catch(err => {
-              console.error('Gofile API エラー:', err);
-            })
-            .finally(() => {
-              // 全ての fetch(getServer) が終わったら DataTable を初期化
-              pending--;
-              if (pending === 0) {
-                // 3. <tbody> に一括追加
-                $('#videoTable tbody').append(rows.join(''));
-                // 4. DataTables 初期化
-                $('#videoTable').DataTable({
-                  order: [[3, 'desc']],   // 「追加日」列で降順ソート
-                  pageLength: 10,
-                  columnDefs: [
-                    { orderable: false, targets: 0 }  // プレビュー列はソート不可
-                  ]
-                });
-              }
-            });
-        });
-      })
-      .catch(err => {
-        console.error('videos.json の読み込みエラー:', err);
+      // 2) 動画リストを取得
+      const videosRes = await fetch('videos.json');
+      const videos = await videosRes.json();
+
+      // 3) テーブル行を組み立て
+      const rows = videos.map(v => {
+        // 動画ページの fileId 部分を取り出し
+        const fileId = v.url.split('/').pop();
+        // ダウンロード用の生ファイル URL を組み立て
+        const rawUrl = `https://${server}.gofile.io/download/${fileId}`;
+        return `
+          <tr>
+            <td>
+              <video width="160" muted autoplay loop playsinline preload="metadata">
+                <source src="${rawUrl}" type="video/mp4">
+              </video>
+            </td>
+            <td>${v.title}</td>
+            <td><a href="${v.url}" target="_blank">原ページ</a></td>
+            <td>${v.date}</td>
+          </tr>
+        `;
       });
+
+      // 4) 一括で追加＆DataTable 初期化
+      $('#videoTable tbody').append(rows.join(''));
+      $('#videoTable').DataTable({
+        order: [[3, 'desc']],
+        pageLength: 10,
+        columnDefs: [{ orderable: false, targets: 0 }]
+      });
+
+    } catch(err) {
+      console.error(err);
+    }
   });
   </script>
-  <!-- ここまで -->
 </body>
 </html>
