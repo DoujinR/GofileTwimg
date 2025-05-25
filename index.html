@@ -2,13 +2,15 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>動画一覧（動くサムネプレビュー付き）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>動画一覧（サムネプレビュー付き）</title>
+  <!-- DataTables CSS -->
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
   <style>
     body { font-family: sans-serif; padding: 20px; }
-    table { width: 100%; }
-    th, td { text-align: center; vertical-align: middle; }
-    video { display: block; margin: 0 auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px; text-align: center; vertical-align: middle; }
+    video { display: block; margin: 0 auto; max-width: 160px; height: auto; }
   </style>
 </head>
 <body>
@@ -22,58 +24,67 @@
         <th>追加日</th>
       </tr>
     </thead>
-    <tbody><!-- JS で埋める --></tbody>
+    <tbody><!-- JS で動的に埋める --></tbody>
   </table>
 
+  <!-- jQuery と DataTables JS -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+
   <script>
   $(async function(){
     try {
-      // 1) まずサーバー一覧を取得
-      const srvRes = await fetch('https://api.gofile.io/servers');
-      const srvJson = await srvRes.json();
-      if (srvJson.status !== 'ok') throw new Error('サーバー取得失敗');
+      // videos.json を取得
+      const videos = await fetch('videos.json').then(r => r.json());
+      const rows = [];
 
-      // サーバーの配列（例: ["srv1", "srv2", ...]）
-      const servers = srvJson.data.servers;
-      // 任意のサーバーを選択（ここでは一番目を採用）
-      const server = servers[0];
+      // 各動画URLページから生ファイルのダウンロードリンクを抽出
+      await Promise.all(videos.map(async v => {
+        let raw = null;
+        try {
+          const html = await fetch(v.url).then(r => r.text());
+          const m = html.match(/https?:\/\/[a-z0-9.-]+\.gofile\.io\/download\/[A-Za-z0-9]+/i);
+          if (m) raw = m[0];
+        } catch (e) {
+          console.warn(`ページ取得失敗: ${v.url}`, e);
+        }
 
-      // 2) 動画リストを取得
-      const videosRes = await fetch('videos.json');
-      const videos = await videosRes.json();
+        if (raw) {
+          rows.push(`
+            <tr>
+              <td>
+                <video width="160" muted autoplay loop playsinline preload="metadata">
+                  <source src="${raw}" type="video/mp4">
+                </video>
+              </td>
+              <td>${v.title}</td>
+              <td><a href="${v.url}" target="_blank" rel="noopener">原ページ</a></td>
+              <td>${v.date}</td>
+            </tr>
+          `);
+        } else {
+          rows.push(`
+            <tr>
+              <td>—</td>
+              <td>${v.title}</td>
+              <td><a href="${v.url}" target="_blank" rel="noopener">原ページ</a></td>
+              <td>${v.date}</td>
+            </tr>
+          `);
+        }
+      }));
 
-      // 3) テーブル行を組み立て
-      const rows = videos.map(v => {
-        // 動画ページの fileId 部分を取り出し
-        const fileId = v.url.split('/').pop();
-        // ダウンロード用の生ファイル URL を組み立て
-        const rawUrl = `https://${server}.gofile.io/download/${fileId}`;
-        return `
-          <tr>
-            <td>
-              <video width="160" muted autoplay loop playsinline preload="metadata">
-                <source src="${rawUrl}" type="video/mp4">
-              </video>
-            </td>
-            <td>${v.title}</td>
-            <td><a href="${v.url}" target="_blank">原ページ</a></td>
-            <td>${v.date}</td>
-          </tr>
-        `;
-      });
-
-      // 4) 一括で追加＆DataTable 初期化
+      // テーブルに行を一括追加
       $('#videoTable tbody').append(rows.join(''));
+      // DataTable 初期化
       $('#videoTable').DataTable({
         order: [[3, 'desc']],
         pageLength: 10,
         columnDefs: [{ orderable: false, targets: 0 }]
       });
 
-    } catch(err) {
-      console.error(err);
+    } catch (err) {
+      console.error('エラー:', err);
     }
   });
   </script>
